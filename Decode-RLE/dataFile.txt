@@ -1,0 +1,39 @@
+//Test file #1: Testing single delimiters but in various locations
+//Delimiter at the beginning
+*4abcd
+*
+aaaabcd
+//Delimiter in the middle
+a*5bcd
+*
+abbbbbcd
+//Delimiter at the end
+abc*d4
+*
+abcdddd
+//Test file #2: Testing multiple delimiters but in various locations
+//Delimiters at the beginning and at the end
+@a5bcd@4e
+@
+aaaaabcdeeee
+//Delimiters in the middle
+ab@3c@3def
+@
+abcccdddef
+//Delimitera at the beginning
+#3a#3b#2cde
+#
+aaabbbccde
+//Delimiters at the end
+ab*3d3*b
+*
+abdddbbb
+//Test file #3: Testing without delimiters
+//1
+anmol
+*
+anmol
+//2
+a4b3c1
+#
+a4b3c1
