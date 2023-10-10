@@ -1,58 +1,15 @@
-// import java.io.BufferedReader;
-// import java.io.InputStreamReader;
-// import java.net.HttpURLConnection;
-// import java.net.URL;
-
-// public class AlphaVantageDataRetriever {
-//     public static void main(String[] args) {
-//         try {
-//             String apiKey = " LY5VTQXKUU8DCT4A"; // Replace with your Alpha Vantage API key
-//             String symbol = "AAPL"; // Replace with the stock symbol you want to retrieve data for
-//             String functionName = "TIME_SERIES_DAILY"; // Specify the function you want to use
-
-//             String urlString = "https://www.alphavantage.co/query?function=" + functionName +
-//                     "&symbol=" + symbol + "&apikey=" + apiKey;
-
-//             URL url = new URL(urlString);
-//             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-//             connection.setRequestMethod("GET");
-
-//             int responseCode = connection.getResponseCode();
-
-//             if (responseCode == HttpURLConnection.HTTP_OK) {
-//                 BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-//                 String line;
-//                 StringBuilder response = new StringBuilder();
-
-//                 while ((line = reader.readLine()) != null) {
-//                     response.append(line);
-//                 }
-
-//                 reader.close();
-
-//                 // Process the JSON response data
-//                 String jsonData = response.toString();
-//                 System.out.println(jsonData);
-//             } else {
-//                 System.out.println("HTTP Request Failed with status code: " + responseCode);
-//             }
-//         } catch (Exception e) {
-//             e.printStackTrace();
-//         }
-//     }
-// }
-
-
-
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.chart.LineChart;
 import javafx.scene.chart.NumberAxis;
 import javafx.scene.chart.XYChart;
 import javafx.scene.control.*;
+import javafx.scene.input.ScrollEvent;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
@@ -60,11 +17,13 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
 
 public class AlphaVantageDataRetriever extends Application {
     private static final String ALPHA_VANTAGE_API_KEY = "LY5VTQXKUU8DCT4A";
+    private double initialX;
 
     public static void main(String[] args) {
         launch(args);
@@ -77,6 +36,13 @@ public class AlphaVantageDataRetriever extends Application {
         // Input Controls
         TextField symbolInput = new TextField();
         symbolInput.setPromptText("Enter Stock Symbol (e.g., AAPL)");
+        symbolInput.setPrefWidth(250); // Set the preferred width
+        symbolInput.setPrefHeight(35); // Set the preferred height
+
+        // Create an HBox to hold the symbolInput
+        HBox symbolInputContainer = new HBox(symbolInput);
+        symbolInputContainer.setPadding(new Insets(40, 10, 10, 10));; // Set the spacing around symbolInput
+        symbolInputContainer.setAlignment(Pos.CENTER); // Center the symbolInput horizontally
 
         ComboBox<String> timeframeComboBox = new ComboBox<>();
         timeframeComboBox.setItems(FXCollections.observableArrayList("Daily", "Weekly", "Monthly"));
@@ -92,11 +58,20 @@ public class AlphaVantageDataRetriever extends Application {
         XYChart.Series<Number, Number> series = new XYChart.Series<>();
         series.setName("Stock Price");
         lineChart.getData().add(series);
+
+        lineChart.setPrefWidth(600); // Set the preferred width
+        lineChart.setPrefHeight(600); // Set the preferred height
+
+
+        // Set the line color to black
+        String lineStyle = "-fx-stroke: black;";
+        series.getNode().setStyle(lineStyle);
+        
         
         // Layout
-        VBox layout = new VBox(10);
-        layout.setAlignment(Pos.CENTER);
-        layout.getChildren().addAll(symbolInput, timeframeComboBox, analyzeButton, lineChart);
+        VBox layout = new VBox(20);
+        layout.setAlignment(Pos.TOP_CENTER);
+        layout.getChildren().addAll(symbolInputContainer, timeframeComboBox, analyzeButton, lineChart);
 
         // Analyze Button Action
         analyzeButton.setOnAction(e -> {
@@ -109,25 +84,95 @@ public class AlphaVantageDataRetriever extends Application {
                 // Update the chart with fetched data
                 series.getData().clear();
                 for (int i = 0; i < prices.size(); i++) {
-                    series.getData().add(new XYChart.Data<>(i, prices.get(i)));
+
+                    XYChart.Data<Number, Number> dataPoint = new XYChart.Data<>(i, prices.get(i));
+                    series.getData().add(dataPoint);
+
+                    // Set the point color to black
+                    String pointStyle = "-fx-background-color: black, white; -fx-background-insets: 0, 1;";
+                    dataPoint.getNode().setStyle(pointStyle);
+
                 }
+
             } else {
                 showAlert("Invalid Input", "Please enter a stock symbol.");
             }
+
         });
 
         
-        // Add tooltips to the data points in the line chart
-        for (XYChart.Data<Number, Number> data : series.getData()) {
-            Tooltip tooltip = new Tooltip(String.format("Price: $%.2f", data.getYValue()));
-            Tooltip.install(data.getNode(), tooltip);
-        }
+        
+        lineChart.setOnMouseMoved(event -> {
+            
+            // Add tooltips to the data points in the line chart
+            DecimalFormat decimalFormat = new DecimalFormat("#.##");
+            
+            for (XYChart.Data<Number, Number> data : series.getData()) {
+                Tooltip tooltip = new Tooltip("Price: $" + decimalFormat.format(data.getYValue()));
+                Tooltip.install(data.getNode(), tooltip);
+            }
 
-        lineChart.setMouseTransparent(false);
-        series.getNode().setMouseTransparent(false);
+        });
 
 
-        Scene scene = new Scene(layout, 800, 600);
+        // Enable zooming on the line chart
+        lineChart.setOnScroll((ScrollEvent event) -> {
+
+            double deltaY = event.getDeltaY();
+            double lowerBound = xAxis.getLowerBound();
+            double upperBound = xAxis.getUpperBound();
+
+            double maxRange = 25; // Define your maximum zoom range
+            
+            // Prevent invalid bounds and zooming out beyond the initial range
+            if ((upperBound - lowerBound) > maxRange) {
+
+                if (deltaY < 0) {
+                    // Zoom in
+                    xAxis.setAutoRanging(false);
+                    xAxis.setLowerBound(lowerBound + 1);
+                    xAxis.setUpperBound(upperBound - 1);
+                } 
+                
+            }
+
+            if(deltaY > 0 && lowerBound > 0){
+                // Zoom out
+                xAxis.setAutoRanging(false);
+                xAxis.setLowerBound(lowerBound - 1);
+                xAxis.setUpperBound(upperBound + 1);
+            }
+            
+        });
+
+
+        
+
+        lineChart.setOnMousePressed(event -> {
+            initialX = xAxis.getValueForDisplay(event.getX()).doubleValue();
+        });
+
+        lineChart.setOnMouseDragged(event -> {
+            double deltaX = xAxis.getValueForDisplay(event.getX()).doubleValue() - initialX;
+
+            double newXLower = xAxis.getLowerBound() - deltaX;
+            double newXUpper = xAxis.getUpperBound() - deltaX;
+
+            // Check if new bounds are not negative, then update them
+            if (newXLower >= 0) {
+                xAxis.setAutoRanging(false);
+                yAxis.setAutoRanging(false);
+
+                xAxis.setLowerBound(newXLower);
+                xAxis.setUpperBound(newXUpper);
+
+            }
+
+            // Update initial values for the next drag operation
+            initialX = xAxis.getValueForDisplay(event.getX()).doubleValue();
+        });
+
+        Scene scene = new Scene(layout, 1000, 800);
         primaryStage.setScene(scene);
         primaryStage.show();
 
