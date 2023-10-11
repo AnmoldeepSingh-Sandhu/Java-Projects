@@ -24,6 +24,9 @@ import java.util.List;
 public class AlphaVantageDataRetriever extends Application {
     private static final String ALPHA_VANTAGE_API_KEY = "LY5VTQXKUU8DCT4A";
     private double initialX;
+    private double initialY;
+    private List<String> dates = new ArrayList<>();
+
 
     public static void main(String[] args) {
         launch(args);
@@ -106,10 +109,23 @@ public class AlphaVantageDataRetriever extends Application {
             
             // Add tooltips to the data points in the line chart
             DecimalFormat decimalFormat = new DecimalFormat("#.##");
+
+            // Get the index of the data point under the mouse cursor
+            int dataIndex = (int) xAxis.getValueForDisplay(event.getX()).doubleValue();
+
+            int index = dates.size() - dataIndex;
             
-            for (XYChart.Data<Number, Number> data : series.getData()) {
-                Tooltip tooltip = new Tooltip("Price: $" + decimalFormat.format(data.getYValue()));
-                Tooltip.install(data.getNode(), tooltip);
+            if (index >= 0 && index < dates.size()) {
+
+                String date = dates.get(index); // Retrieve the date
+
+                for (XYChart.Data<Number, Number> data : series.getData()) {
+
+                    // Use the retrieved date along with the price in the tooltip
+                    Tooltip tooltip = new Tooltip("Date: " + date + "\nPrice: $" + decimalFormat.format(data.getYValue()));
+                    Tooltip.install(data.getNode(), tooltip);
+
+                }
             }
 
         });
@@ -150,13 +166,18 @@ public class AlphaVantageDataRetriever extends Application {
 
         lineChart.setOnMousePressed(event -> {
             initialX = xAxis.getValueForDisplay(event.getX()).doubleValue();
+            initialY = yAxis.getValueForDisplay(event.getY()).doubleValue();
         });
 
         lineChart.setOnMouseDragged(event -> {
             double deltaX = xAxis.getValueForDisplay(event.getX()).doubleValue() - initialX;
+            double deltaY = yAxis.getValueForDisplay(event.getY()).doubleValue() - initialY;
+
 
             double newXLower = xAxis.getLowerBound() - deltaX;
             double newXUpper = xAxis.getUpperBound() - deltaX;
+            double newYLower = yAxis.getLowerBound() - deltaY;
+            double newYUpper = yAxis.getUpperBound() - deltaY;
 
             // Check if new bounds are not negative, then update them
             if (newXLower >= 0) {
@@ -166,10 +187,13 @@ public class AlphaVantageDataRetriever extends Application {
                 xAxis.setLowerBound(newXLower);
                 xAxis.setUpperBound(newXUpper);
 
+                yAxis.setLowerBound(newYLower);
+                yAxis.setUpperBound(newYUpper);
             }
 
             // Update initial values for the next drag operation
             initialX = xAxis.getValueForDisplay(event.getX()).doubleValue();
+            initialY = yAxis.getValueForDisplay(event.getY()).doubleValue();
         });
 
         Scene scene = new Scene(layout, 1000, 800);
@@ -181,6 +205,7 @@ public class AlphaVantageDataRetriever extends Application {
 
     private List<Double> fetchData(String symbol, String timeframe) {
         List<Double> prices = new ArrayList<>();
+
         try {
             String apiUrl = "https://www.alphavantage.co/query?function=TIME_SERIES_" + timeframe +
                     "&symbol=" + symbol + "&apikey=" + ALPHA_VANTAGE_API_KEY;
@@ -191,7 +216,6 @@ public class AlphaVantageDataRetriever extends Application {
             connection.setRequestMethod("GET");
 
             int responseCode = connection.getResponseCode();
-            System.out.println(responseCode);
 
             if (responseCode == HttpURLConnection.HTTP_OK) {
 
@@ -201,8 +225,10 @@ public class AlphaVantageDataRetriever extends Application {
                 // Skip the first line (header) if needed
                 reader.readLine();
                 
-
+                int count = 0;
                 while ((line = reader.readLine()) != null) {
+
+                    // if(count < 50){System.out.println(line); count++;}
 
                     if (line.contains("4. close")) {
 
@@ -215,6 +241,17 @@ public class AlphaVantageDataRetriever extends Application {
                             prices.add(closePrice);
                         }
 
+                    }else if(line.contains(": {") ){
+
+                        int startIndex = 3;
+                        int endIndex = line.indexOf(":")-1;
+
+                        if (startIndex != -1 && endIndex != -1 && count >= 2) {
+                            String date = line.substring(startIndex, endIndex).trim();
+                            dates.add(date);
+                        }
+
+                        count++;
                     }
 
                 }
