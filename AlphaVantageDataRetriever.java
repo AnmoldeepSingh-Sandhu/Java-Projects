@@ -243,7 +243,7 @@ public class AlphaVantageDataRetriever extends Application {
 
                     }else if(line.contains(": {") ){
 
-                        int startIndex = 3;
+                        int startIndex = 9;
                         int endIndex = line.indexOf(":")-1;
 
                         if (startIndex != -1 && endIndex != -1 && count >= 2) {
